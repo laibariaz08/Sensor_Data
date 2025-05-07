@@ -1,109 +1,88 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Device Sensor Data</title>
-    <style>
-        .error {
-            color: red;
-            font-weight: bold;
-        }
-        button {
-            padding: 10px;
-            margin: 10px 0;
-            font-size: 16px;
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Device Sensor Data</title>
+  <style>
+    .error { color: red; font-weight: bold; }
+    button { padding: 10px; margin: 10px 0; font-size: 16px; }
+  </style>
 </head>
 <body>
-    <h1>Device Sensor Data</h1>
-    <div id="permission" class="error">
-        <p>This app requires permission to access device sensors</p>
-        <button id="requestPermission">Grant Permissions</button>
-    </div>
-    <div id="https-warning" class="error" style="display: none;">
-        <p>Sensor APIs require HTTPS. Please access via a secure connection.</p>
-    </div>
-    <div id="support-error" class="error" style="display: none;">
-        <p>Your device or browser doesn't support required sensor APIs.</p>
-    </div>
-    <div id="output" style="display: none;">
-        <p><strong>Accelerometer:</strong></p>
-        <p id="acceleration">X: 0, Y: 0, Z: 0</p>
-        <p><strong>Gyroscope:</strong></p>
-        <p id="rotationRate">Alpha: 0, Beta: 0, Gamma: 0</p>
-        <p><strong>Magnetometer:</strong></p>
-        <p id="orientation">Alpha: 0, Beta: 0, Gamma: 0</p>
-    </div>
+  <h1>Device Sensor Data</h1>
+  <div id="permission" class="error">
+    <p>This app requires permission to access device sensors</p>
+    <button id="requestPermission">Grant Permissions</button>
+  </div>
+  <div id="https-warning" class="error" style="display: none;">
+    <p>Sensor APIs require HTTPS. Please access via a secure connection.</p>
+  </div>
+  <div id="support-error" class="error" style="display: none;">
+    <p>Your device or browser doesn't support required sensor APIs.</p>
+  </div>
+  <div id="output" style="display: none;">
+    <p><strong>Accelerometer:</strong></p>
+    <p id="acceleration">X: 0, Y: 0, Z: 0</p>
+    <p><strong>Gyroscope:</strong></p>
+    <p id="rotationRate">Alpha: 0, Beta: 0, Gamma: 0</p>
+    <p><strong>Magnetometer:</strong></p>
+    <p id="orientation">Alpha: 0, Beta: 0, Gamma: 0</p>
+  </div>
 
-    <script>
-        // Check for secure context
-        if (!window.isSecureContext) {
-            document.getElementById('https-warning').style.display = 'block';
-            document.getElementById('permission').style.display = 'none';
+  <script>
+    if (!window.isSecureContext) {
+      document.getElementById('https-warning').style.display = 'block';
+      document.getElementById('permission').style.display = 'none';
+    }
+
+    if (!window.DeviceMotionEvent || !window.DeviceOrientationEvent) {
+      document.getElementById('support-error').style.display = 'block';
+      document.getElementById('permission').style.display = 'none';
+    }
+
+    document.getElementById('requestPermission').addEventListener('click', function() {
+      Promise.all([
+        typeof DeviceMotionEvent.requestPermission === 'function' ? 
+          DeviceMotionEvent.requestPermission() : Promise.resolve('granted'),
+        typeof DeviceOrientationEvent.requestPermission === 'function' ?
+          DeviceOrientationEvent.requestPermission() : Promise.resolve('granted')
+      ]).then(([motionPermission, orientationPermission]) => {
+        if (motionPermission === 'granted' && orientationPermission === 'granted') {
+          document.getElementById('permission').style.display = 'none';
+          document.getElementById('output').style.display = 'block';
+          initSensors();
         }
+      }).catch(error => {
+        document.getElementById('permission').innerHTML = 
+          `<p class="error">Error requesting permission: ${error.message}</p>`;
+      });
+    });
 
-        // Check for feature support
-        if (!window.DeviceMotionEvent || !window.DeviceOrientationEvent) {
-            document.getElementById('support-error').style.display = 'block';
-            document.getElementById('permission').style.display = 'none';
-        }
+    function initSensors() {
+      window.addEventListener('devicemotion', function(event) {
+        const acc = event.acceleration || {};
+        document.getElementById('acceleration').textContent = 
+          `X: ${acc.x?.toFixed(2) || 'N/A'}, Y: ${acc.y?.toFixed(2) || 'N/A'}, Z: ${acc.z?.toFixed(2) || 'N/A'}`;
+        
+        const rot = event.rotationRate || {};
+        document.getElementById('rotationRate').textContent = 
+          `Alpha: ${rot.alpha?.toFixed(2) || 'N/A'}, Beta: ${rot.beta?.toFixed(2) || 'N/A'}, Gamma: ${rot.gamma?.toFixed(2) || 'N/A'}`;
+      });
 
-        // Permission request handler
-        document.getElementById('requestPermission').addEventListener('click', function() {
-            // Request permission for device motion and orientation
-            Promise.all([
-                typeof DeviceMotionEvent.requestPermission === 'function' ? 
-                    DeviceMotionEvent.requestPermission() : Promise.resolve('granted'),
-                typeof DeviceOrientationEvent.requestPermission === 'function' ?
-                    DeviceOrientationEvent.requestPermission() : Promise.resolve('granted')
-            ]).then(([motionPermission, orientationPermission]) => {
-                if (motionPermission === 'granted' && orientationPermission === 'granted') {
-                    document.getElementById('permission').style.display = 'none';
-                    document.getElementById('output').style.display = 'block';
-                    initSensors();
-                }
-            }).catch(error => {
-                console.error('Permission error:', error);
-                document.getElementById('permission').innerHTML = 
-                    <p class="error">Error requesting permission: ${error.message}</p>;
-            });
-        });
+      window.addEventListener('deviceorientation', function(event) {
+        document.getElementById('orientation').textContent = 
+          `Alpha: ${event.alpha?.toFixed(2) || 'N/A'}, Beta: ${event.beta?.toFixed(2) || 'N/A'}, Gamma: ${event.gamma?.toFixed(2) || 'N/A'}`;
+      });
+    }
 
-        // Initialize sensors after permission is granted
-        function initSensors() {
-            // Device Motion API (Accelerometer and Gyroscope)
-            window.addEventListener('devicemotion', function(event) {
-                // Accelerometer data
-                const acceleration = event.acceleration || event.accelerationIncludingGravity || {};
-                document.getElementById('acceleration').textContent = 
-                    X: ${acceleration.x?.toFixed(2) || 'N/A'}, Y: ${acceleration.y?.toFixed(2) || 'N/A'}, Z: ${acceleration.z?.toFixed(2) || 'N/A'};
-
-                // Gyroscope data
-                const rotationRate = event.rotationRate || {};
-                document.getElementById('rotationRate').textContent = 
-                    Alpha: ${rotationRate.alpha?.toFixed(2) || 'N/A'}, Beta: ${rotationRate.beta?.toFixed(2) || 'N/A'}, Gamma: ${rotationRate.gamma?.toFixed(2) || 'N/A'};
-            });
-
-            // Device Orientation API
-            window.addEventListener('deviceorientation', function(event) {
-                const alpha = event.alpha; // Z-axis
-                const beta = event.beta;   // X-axis
-                const gamma = event.gamma; // Y-axis
-
-                document.getElementById('orientation').textContent = 
-                    Alpha: ${alpha?.toFixed(2) || 'N/A'}, Beta: ${beta?.toFixed(2) || 'N/A'}, Gamma: ${gamma?.toFixed(2) || 'N/A'};
-            });
-        }
-
-        // Auto-initialize if permission APIs aren't required (like on Android)
-        if (typeof DeviceMotionEvent.requestPermission !== 'function' && 
-            typeof DeviceOrientationEvent.requestPermission !== 'function') {
-            document.getElementById('permission').style.display = 'none';
-            document.getElementById('output').style.display = 'block';
-            initSensors();
-        }
-    </script>
+    // Auto-initialize if permission request API isn't needed (older Android)
+    if (typeof DeviceMotionEvent.requestPermission !== 'function' &&
+        typeof DeviceOrientationEvent.requestPermission !== 'function') {
+      document.getElementById('permission').style.display = 'none';
+      document.getElementById('output').style.display = 'block';
+      initSensors();
+    }
+  </script>
 </body>
 </html>
